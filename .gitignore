@@ -1,0 +1,42 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*.local
+
+# Certificat HTTPS de développement (scripts/dev-cert.sh) — jamais versionné :
+# il contient une clé privée et l'adresse IP du poste.
+certs/
+
+# Terraform. L'état contient les identifiants des ressources et parfois des
+# valeurs sensibles : il n'a rien à faire dans le dépôt (voir le backend S3
+# dans infra/versions.tf).
+infra/.terraform/
+# NB : infra/.terraform.lock.hcl est au contraire À VERSIONNER — il fige les
+# versions de fournisseurs, exactement comme package-lock.json.
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+tfplan
+tfplan.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

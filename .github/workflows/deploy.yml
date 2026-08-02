@@ -1,0 +1,153 @@
+name: Déploiement
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environnement:
+        description: Environnement cible
+        required: true
+        default: production
+        type: choice
+        options: [staging, production]
+
+# Un seul déploiement à la fois, et on ne l'interrompt PAS en cours de route :
+# une synchronisation S3 coupée au milieu laisse le site à moitié à jour.
+concurrency:
+  group: deploy-${{ inputs.environnement || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publier sur AWS
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environnement || 'production' }}
+
+    # Interrupteur : tant que l'infrastructure n'existe pas, ce workflow ne doit
+    # pas s'exécuter. Sans ce garde-fou, chaque push sur main afficherait un échec
+    # rouge sans rapport avec le code — et on finit par ne plus regarder les échecs.
+    #
+    # À activer une fois `terraform apply` passé :
+    #   GitHub → Settings → Secrets and variables → Actions → Variables
+    #   DEPLOY_ENABLED = true
+    #
+    # (Une variable, et non un secret : GitHub interdit les secrets dans un `if`
+    #  au niveau du job.)
+    if: vars.DEPLOY_ENABLED == 'true'
+
+    permissions:
+      id-token: write # indispensable : c'est le jeton OIDC présenté à AWS
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Compiler
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PLATFORM_DOMAIN: ${{ vars.PLATFORM_DOMAIN }}
+        run: npm run build
+
+      # Aucune clé AWS n'est stockée : GitHub présente un jeton OIDC de courte
+      # durée, AWS le vérifie et renvoie des identifiants temporaires.
+      - name: S'authentifier auprès d'AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'eu-west-3' }}
+
+      # ---------------------------------------------------------------------
+      # Publication, en quatre passes. L'ordre et la séparation ne sont pas
+      # cosmétiques : chaque famille de fichiers a sa durée de cache et son type.
+      # ---------------------------------------------------------------------
+      - name: Publier les fichiers immuables
+        run: |
+          # Les noms contiennent un hachage : le contenu ne changera jamais.
+          aws s3 sync dist/ "s3://${{ secrets.S3_BUCKET }}/" \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html" \
+            --exclude "sw.js" \
+            --exclude "manifest.webmanifest" \
+            --exclude "*.glb" \
+            --exclude "*.usdz"
+
+      - name: Publier les modèles 3D avec le bon type MIME
+        run: |
+          # S3 étiquette par défaut binary/octet-stream. Le navigateur s'en
+          # accommode, mais Scene Viewer (Android) et Quick Look (iOS) refusent
+          # le fichier : la 3D s'affiche et la réalité augmentée échoue en silence.
+          aws s3 sync dist/ "s3://${{ secrets.S3_BUCKET }}/" \
+            --exclude "*" --include "*.glb" \
+            --content-type "model/gltf-binary" \
+            --cache-control "public,max-age=604800"
+
+          aws s3 sync dist/ "s3://${{ secrets.S3_BUCKET }}/" \
+            --exclude "*" --include "*.usdz" \
+            --content-type "model/vnd.usdz+zip" \
+            --cache-control "public,max-age=604800"
+
+      - name: Publier les fichiers jamais mis en cache
+        run: |
+          # index.html porte les références aux bundles hachés, et sw.js décide
+          # de ce que voient les visiteurs déjà venus. Mis en cache, l'un ou
+          # l'autre fige le site sur la version précédente.
+          aws s3 cp dist/index.html "s3://${{ secrets.S3_BUCKET }}/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html; charset=utf-8"
+
+          aws s3 cp dist/sw.js "s3://${{ secrets.S3_BUCKET }}/sw.js" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "application/javascript; charset=utf-8"
+
+          aws s3 cp dist/manifest.webmanifest "s3://${{ secrets.S3_BUCKET }}/manifest.webmanifest" \
+            --cache-control "public,max-age=3600" \
+            --content-type "application/manifest+json"
+
+      - name: Purger le cache CloudFront
+        run: |
+          ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/index.html" "/sw.js" "/manifest.webmanifest" \
+            --query 'Invalidation.Id' --output text)
+          echo "Invalidation $ID en cours…"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --id "$ID"
+          echo "Cache purgé."
+
+      # Vérification a posteriori : on contrôle ce que le visiteur reçoit
+      # vraiment, pas ce qu'on croit avoir déployé.
+      - name: Vérifier le site en ligne
+        run: |
+          set -e
+          BASE="https://${{ vars.PLATFORM_DOMAIN || 'musea.space' }}"
+
+          echo "── Page d'accueil ──"
+          curl -fsS -o /dev/null -w "%{http_code}\n" "$BASE/" | grep -q 200
+
+          # LE contrôle qui compte : un lien profond doit répondre 200, pas 403.
+          # C'est le repli SPA, et c'est de lui que dépendent les QR codes de
+          # réalité augmentée, qui pointent vers /site/ar/<id>.
+          echo "── Repli SPA sur lien profond ──"
+          CODE=$(curl -fsS -o /dev/null -w "%{http_code}" "$BASE/site/ar/demo")
+          [ "$CODE" = "200" ] || { echo "Repli SPA cassé : $CODE"; exit 1; }
+
+          echo "── Type MIME du modèle 3D ──"
+          TYPE=$(curl -fsSI "$BASE/modeles/tabouret.glb" | tr -d '\r' \
+                 | awk -F': ' 'tolower($1)=="content-type"{print $2}')
+          echo "content-type = $TYPE"
+          [ "$TYPE" = "model/gltf-binary" ] \
+            || { echo "Type MIME incorrect : la RA échouera sur Android et iOS"; exit 1; }
+
+          echo "Déploiement vérifié."

@@ -1,0 +1,32 @@
+{
+  "name": "musea",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MUSÉA — plateforme de la Fondation Jean Félicien Gacha : ERP (musées, secteurs, objets, tarifs, généalogie) + site public e-commerce.",
+  "scripts": {
+    "dev": "vite",
+    "dev:phone": "vite --mode phone",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/model-viewer": "^4.0.0",
+    "@primevue/themes": "^4.2.5",
+    "@supabase/supabase-js": "^2.110.2",
+    "d3-hierarchy": "^3.1.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.2.0",
+    "d3-zoom": "^3.0.0",
+    "pinia": "^2.3.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.2.5",
+    "vue": "^3.5.13",
+    "vue-i18n": "^9.14.5",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^5.4.11"
+  }
+}

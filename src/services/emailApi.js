@@ -1,0 +1,87 @@
+import { supabase } from './supabase'
+
+// E-mails transactionnels — l'envoi réel se fait dans l'Edge Function `send-email`
+// (la clé Resend reste côté serveur). Un envoi ne doit JAMAIS bloquer le parcours
+// du visiteur : toute erreur est avalée et seulement tracée en console.
+//
+// Sans clé configurée, la fonction répond { skipped: true } et l'application continue.
+
+async function send(payload) {
+  try {
+    const { data, error } = await supabase.functions.invoke('send-email', { body: payload })
+    if (error) { console.warn('[email] envoi impossible :', error.message); return false }
+    if (data?.skipped) return false          // pas de clé Resend : silencieux, c'est normal
+    return !!data?.ok
+  } catch (e) {
+    console.warn('[email] envoi impossible :', e.message)
+    return false
+  }
+}
+
+// Identité visuelle de l'organisation, pour que l'e-mail ressemble à SON site.
+function branding(settings, tenant) {
+  return {
+    marque: settings?.nomEntite || tenant?.nom || 'MUSÉA',
+    couleur: settings?.couleurPrimaire || '#0e6f5c'
+  }
+}
+
+// Reçu de commande, envoyé juste après le paiement.
+export function sendOrderReceipt({ to, prenom, order, items, tenantId, settings, tenant, lien }) {
+  if (!to) return Promise.resolve(false)
+  return send({
+    type: 'recu_commande',
+    to,
+    tenantId: tenantId ?? null,
+    orderId: order?.id ?? null,
+    prenom: prenom || '',
+    total: order?.total ?? 0,
+    devise: order?.devise || '€',
+    date: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }),
+    items: (items || []).map((i) => ({ label: i.label, montant: i.montant })),
+    lien,
+    ...branding(settings, tenant)
+  })
+}
+
+// Confirmation d'accès débloqué (pass ou audioguide).
+export function sendAccessUnlocked({ to, prenom, libelle, expiration, tenantId, settings, tenant, lien }) {
+  if (!to) return Promise.resolve(false)
+  return send({
+    type: 'acces_debloque',
+    to, tenantId: tenantId ?? null,
+    prenom: prenom || '', libelle, expiration: expiration || '', lien,
+    ...branding(settings, tenant)
+  })
+}
+
+// Accusé d'inscription d'une organisation (en attente de validation).
+export function sendTenantWelcome({ to, nomOrganisation, lien }) {
+  if (!to) return Promise.resolve(false)
+  return send({ type: 'bienvenue', to, nomOrganisation, lien, marque: 'MUSÉA', couleur: '#0e6f5c' })
+}
+
+// Notification d'approbation : le site public de l'organisation est en ligne.
+export function sendTenantApproved({ to, nomOrganisation, tenantId, lien }) {
+  if (!to) return Promise.resolve(false)
+  return send({
+    type: 'organisation_approuvee',
+    to, tenantId: tenantId ?? null, nomOrganisation, lien,
+    marque: 'MUSÉA', couleur: '#0e6f5c'
+  })
+}
+
+// Campagne adressée au public de l'organisation (V2 Phase 4).
+// Contrairement aux e-mails transactionnels, on veut ici connaître l'issue de chaque
+// envoi (pour le bilan de la campagne) : on renvoie donc le booléen tel quel.
+export function sendCampaignEmail({ to, prenom, sujet, contenu, image, lien, lienTexte, desinscription, tenantId, settings, tenant }) {
+  if (!to) return Promise.resolve(false)
+  return send({
+    type: 'campagne',
+    to, tenantId: tenantId ?? null,
+    prenom: prenom || '', sujet, contenu,
+    image: image || '', lien: lien || '', lienTexte: lienTexte || '',
+    desinscription: desinscription || '',
+    ...branding(settings, tenant)
+  })
+}

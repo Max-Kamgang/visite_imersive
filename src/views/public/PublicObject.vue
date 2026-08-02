@@ -1,0 +1,240 @@
+<script setup>
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import Object3DViewer from '@/components/objects/Object3DViewer.vue'
+import GuideInline from '@/components/public/GuideInline.vue'
+import { pubObject, pubObjectChefs, pubDispersion } from '@/services/publicApi'
+import { useAccessStore } from '@/stores/useAccessStore'
+import { useSiteLink } from '@/composables/useSiteLink'
+
+// Liens internes : reste sur le site consulte (/site ou /c/<slug>)
+const { to } = useSiteLink()
+
+const { t } = useI18n()
+const access = useAccessStore()
+const route = useRoute()
+const object = ref(null)
+const chefs = ref([])
+const dispersion = ref({ total: 0, pays: [], freres: [] })
+const loading = ref(true)
+const viewer = reactive({ visible: false })
+
+async function load() {
+  loading.value = true
+  object.value = await pubObject(Number(route.params.id))
+  if (object.value) {
+    ;[chefs.value, dispersion.value] = await Promise.all([
+      pubObjectChefs(object.value.id),
+      pubDispersion(object.value.id)
+    ])
+  } else {
+    chefs.value = []
+    dispersion.value = { total: 0, pays: [], freres: [] }
+  }
+  access.load()
+  loading.value = false
+}
+onMounted(load)
+watch(() => route.params.id, load)
+
+function chefName(p) { return p.prenom ? `${p.nom}, ${p.prenom}` : p.nom }
+
+// Paywall « histoire complète » (§2.4⑤) : aperçu libre, suite réservée aux abonnés.
+const APERCU = 140
+const museumId = computed(() => object.value?.sectors?.museum_id ?? null)
+const unlocked = computed(() => access.hasMuseum(museumId.value))
+const isTruncated = computed(
+  () => !unlocked.value && (object.value?.description || '').length > APERCU
+)
+const shownDesc = computed(() => {
+  const d = object.value?.description || ''
+  return isTruncated.value ? d.slice(0, APERCU).trimEnd() + '…' : d
+})
+const suggestions = computed(() =>
+  object.value ? [t('object.guideSug1', { name: object.value.nom }), t('object.guideSug2')] : []
+)
+</script>
+
+<template>
+  <div class="ps-wrap">
+    <p v-if="loading" class="ps-muted">{{ $t('common.loading') }}</p>
+    <template v-else-if="object">
+      <router-link :to="museumId ? to(`/musees/${museumId}`) : to('/musees')" class="ps-back ps-back--dark">
+        <i class="pi pi-arrow-left" /> {{ $t('museum.allMuseums') }}
+      </router-link>
+
+      <div class="obj">
+        <div class="obj__media ps-card">
+          <img v-if="object.photo" :src="object.photo" :alt="object.nom" />
+          <div v-else class="ps-ph"><i class="pi pi-box" /></div>
+          <span v-if="object.model3d" class="ps-tag ps-tag--primary badge3d"><i class="pi pi-box" /> 3D · AR</span>
+        </div>
+
+        <div class="obj__info">
+          <span class="ps-over">{{ $t('home.workFallback') }}</span>
+          <h1>{{ object.nom }}</h1>
+          <p v-if="object.nom_commun" class="obj__common">{{ object.nom_commun }}</p>
+          <p class="obj__desc">{{ shownDesc || $t('object.descriptionSoon') }}</p>
+          <div v-if="isTruncated" class="paywall">
+            <i class="pi pi-lock" />
+            <span>{{ $t('object.paywall') }}</span>
+            <router-link :to="to('/panier')" class="ps-btn ps-btn--sm">{{ $t('object.choosePass') }}</router-link>
+          </div>
+
+          <div class="obj__actions">
+            <!-- La réalité augmentée reste proposée même sans numérisation : la
+                 visionneuse affiche alors une pièce de démonstration et le dit. -->
+            <router-link :to="to(`/ar/${object.id}`)" class="ps-btn">
+              <i class="pi pi-mobile" /> {{ $t('ar.cta') }}
+            </router-link>
+            <button v-if="object.model3d" class="ps-btn ps-btn--line" @click="viewer.visible = true">
+              <i class="pi pi-box" /> {{ $t('object.view3d') }}
+            </button>
+            <span class="freebie"><i class="pi pi-gift" /> {{ $t('common.freePreview') }}</span>
+          </div>
+
+          <div v-if="chefs.length" class="chefs">
+            <h3 class="ps-title">{{ $t('object.linkedPersons') }}</h3>
+            <router-link
+              v-for="(c, i) in chefs"
+              :key="i"
+              :to="to(`/personnages/${c.personnages.id}`)"
+              class="chef ps-card ps-card--hover"
+            >
+              <img v-if="c.personnages.portrait" :src="c.personnages.portrait" :alt="chefName(c.personnages)" class="chef__img" />
+              <div v-else class="chef__img chef__img--ph"><i class="pi pi-user" /></div>
+              <div>
+                <span class="chef__rel">{{ $t('object.objectRel', { rel: c.type_lien }) }}</span>
+                <strong>{{ chefName(c.personnages) }}</strong>
+                <span v-if="c.personnages.titre" class="chef__titre">{{ c.personnages.titre }}</span>
+              </div>
+              <i class="pi pi-arrow-right chef__go" />
+            </router-link>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mémoire réunifiée : les pièces sœurs dispersées dans le monde.
+           Uniquement les correspondances VALIDÉES par un conservateur. -->
+      <section v-if="dispersion.total" class="disp">
+        <span class="ps-over">{{ $t('object.dispersionOver') }}</span>
+        <h2 class="disp__title">
+          {{ $t('object.dispersionTitle', { n: dispersion.total, p: dispersion.pays.length }) }}
+        </h2>
+        <p class="disp__lead">{{ $t('object.dispersionLead') }}</p>
+
+        <ul class="disp__list">
+          <li v-for="f in dispersion.freres" :key="f.id">
+            <a :href="f.url || undefined" target="_blank" rel="noopener noreferrer" :class="{ off: !f.url }">
+              <img v-if="f.image" :src="f.image" :alt="f.titre" />
+              <span v-else class="disp__ph"><i class="pi pi-box" /></span>
+              <span class="disp__b">
+                <strong>{{ f.titre || $t('object.dispersionUntitled') }}</strong>
+                <small v-if="f.pays"><i class="pi pi-map-marker" /> {{ f.pays }}</small>
+                <small class="disp__inv">
+                  {{ f.inventaire ? $t('object.dispersionInv', { n: f.inventaire }) : $t('object.dispersionNoInv') }}
+                </small>
+              </span>
+              <i v-if="f.url" class="pi pi-external-link" />
+            </a>
+          </li>
+        </ul>
+        <p class="disp__note"><i class="pi pi-info-circle" /> {{ $t('object.dispersionNote') }}</p>
+      </section>
+
+      <!-- Guide contextuel sur cette œuvre (§2.4⑤ — réservé aux abonnés) -->
+      <div class="obj-guide">
+        <GuideInline
+          v-if="unlocked"
+          :title="$t('object.guideTitle')"
+          :context="object.nom"
+          :suggestions="suggestions"
+          :museum-id="museumId"
+          :sector-id="object.sector_id || object.sectors?.id || null"
+        />
+        <div v-else class="guide-lock ps-card">
+          <i class="pi pi-sparkles" />
+          <div>
+            <strong>{{ $t('object.guideLockedTitle') }}</strong>
+            <span>{{ $t('object.guideLockedText') }}</span>
+          </div>
+          <router-link :to="to('/panier')" class="ps-btn ps-btn--sm">{{ $t('object.subscribe') }}</router-link>
+        </div>
+      </div>
+
+      <Object3DViewer v-model:visible="viewer.visible" :src="object.model3d || ''" :title="object.nom" />
+    </template>
+    <div v-else class="ps-muted">{{ $t('object.notFound') }}</div>
+  </div>
+</template>
+
+<style scoped>
+.ps-back--dark { color: #5c615c; margin-bottom: 1.4rem; }
+.ps-back--dark:hover { color: var(--site-primary); }
+
+.obj { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.4rem; align-items: start; }
+@media (max-width: 820px) { .obj { grid-template-columns: 1fr; } }
+
+.obj__media { position: relative; overflow: hidden; aspect-ratio: 4/3; }
+.obj__media img { width: 100%; height: 100%; object-fit: cover; }
+.badge3d { position: absolute; bottom: 0.8rem; left: 0.8rem; }
+
+.obj__info h1 {
+  font-family: 'Anton', 'Inter', sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem); line-height: 1.08; margin: 0.15rem 0 0.3rem; color: #101210;
+}
+.obj__common { font-style: italic; color: #7c817b; margin: 0 0 1rem; }
+.obj__desc { line-height: 1.75; color: #3c403c; }
+.obj__actions { display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+.freebie { color: #5c615c; font-size: 0.85rem; }
+.freebie i { color: var(--site-primary); }
+
+.chefs { margin-top: 1.6rem; border-top: 1px solid #e8e9e6; padding-top: 1.3rem; }
+.chef { display: flex; align-items: center; gap: 0.9rem; padding: 0.75rem 0.95rem; margin-bottom: 0.6rem; }
+.chef__go { margin-left: auto; color: var(--site-primary); }
+.chef__img { width: 58px; height: 58px; border-radius: 8px; object-fit: cover; flex: 0 0 58px; }
+.chef__img--ph { display: flex; align-items: center; justify-content: center; background: #eef0ed; color: #b9beb8; font-size: 1.4rem; }
+.chef__rel { display: block; font-size: 0.68rem; color: var(--site-primary); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.chef strong { display: block; font-size: 1.02rem; color: #101210; }
+.chef__titre { font-size: 0.82rem; color: #7c817b; font-style: italic; }
+
+/* ---- dispersion ---- */
+.disp { margin-top: 2.4rem; border-top: 1px solid #e8e9e6; padding-top: 1.6rem; }
+.disp__title {
+  font-family: 'Anton', 'Inter', sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(1.2rem, 2.6vw, 1.8rem); line-height: 1.12; margin: 0.3rem 0 0.5rem; color: #101210;
+}
+.disp__lead { color: #3c403c; line-height: 1.7; margin: 0 0 1.2rem; max-width: 760px; }
+.disp__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem; }
+.disp__list a {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem;
+  border: 1px solid #e8e9e6; border-radius: 10px; background: #fff; transition: 0.15s; height: 100%;
+}
+.disp__list a:hover { border-color: var(--gold, #c9a227); transform: translateY(-2px); }
+.disp__list a.off { pointer-events: none; opacity: 0.85; }
+.disp__list img, .disp__ph { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 8px; object-fit: cover; }
+.disp__ph { display: flex; align-items: center; justify-content: center; background: #eef0ed; color: #b9beb8; }
+.disp__b { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 0.1rem; }
+.disp__b strong { font-size: 0.9rem; color: #101210; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.disp__b small { font-size: 0.76rem; color: #7c817b; }
+.disp__b small i { color: var(--site-primary, #0e6f5c); }
+.disp__inv { font-variant-numeric: tabular-nums; opacity: 0.85; }
+.disp__list a > i { color: #b3b8b2; }
+.disp__note { margin: 1rem 0 0; font-size: 0.78rem; color: #9aa09a; display: flex; align-items: center; gap: 0.35rem; }
+.disp__note i { color: var(--gold, #c9a227); }
+
+.obj-guide { margin-top: 2.2rem; }
+.paywall {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  background: #fff; border: 1px dashed var(--site-primary); border-radius: 10px;
+  padding: 0.8rem 1rem; margin-top: 0.9rem; font-size: 0.88rem; color: #5c615c;
+}
+.paywall > i { color: var(--site-primary); }
+.paywall .ps-btn { margin-left: auto; }
+.guide-lock { display: flex; align-items: center; gap: 0.9rem; border-left: 4px solid var(--site-primary); padding: 1.05rem 1.2rem; flex-wrap: wrap; }
+.guide-lock > i { color: var(--site-primary); font-size: 1.3rem; }
+.guide-lock strong { display: block; font-weight: 800; color: #101210; }
+.guide-lock span { font-size: 0.85rem; color: #7c817b; }
+.guide-lock .ps-btn { margin-left: auto; }
+</style>

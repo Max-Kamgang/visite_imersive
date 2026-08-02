@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.github
+infra
+certs
+.env
+.env.*
+*.local
+rapport
+**/*.md
+!package.json
+.claude
+.vscode
+.idea

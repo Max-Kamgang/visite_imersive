@@ -1,0 +1,113 @@
+/* ============================================================
+   Design system du SITE PUBLIC (préfixe .ps- pour éviter tout
+   conflit avec l'ERP). Langage : bandeau noir + titres Anton
+   majuscules + émeraude (--site-primary) + cartes blanches nettes.
+   ============================================================ */
+
+/* --- Bandeau d'en-tête de page (noir, photo optionnelle) --- */
+.ps-hero {
+  position: relative;
+  background: #0d0f0d center/cover no-repeat;
+  color: #fff;
+}
+.ps-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8, 10, 8, 0.88) 0%, rgba(8, 10, 8, 0.55) 60%, rgba(8, 10, 8, 0.3) 100%);
+}
+.ps-hero__in {
+  position: relative; z-index: 1;
+  max-width: 1240px; margin: 0 auto;
+  padding: clamp(2.2rem, 5vw, 3.6rem) 1.5rem;
+}
+.ps-hero__over {
+  display: inline-block;
+  background: var(--site-primary, #0e6f5c); color: #fff;
+  padding: 0.35rem 0.8rem; border-radius: 4px;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.ps-hero h1 {
+  font-family: 'Anton', 'Inter', sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(1.9rem, 4.5vw, 3.4rem); line-height: 1.05; letter-spacing: 0.01em;
+  margin: 0.8rem 0 0.4rem; color: #fff;
+}
+.ps-hero__lead { margin: 0.4rem 0 0; color: #cfd4ce; max-width: 640px; line-height: 1.6; }
+.ps-back {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  color: #cfd4ce; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.ps-back:hover { color: #fff; }
+
+/* --- Conteneurs --- */
+.ps-wrap { max-width: 1240px; margin: 0 auto; padding: 2.6rem 1.5rem 0; }
+.ps-wrap--narrow { max-width: 900px; }
+
+/* --- Titres de section --- */
+.ps-over {
+  display: block; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--site-primary, #0e6f5c); margin-bottom: 0.35rem;
+}
+.ps-title {
+  font-family: 'Anton', 'Inter', sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem); letter-spacing: 0.01em; margin: 2.4rem 0 1.1rem; color: #101210;
+}
+.ps-title:first-child { margin-top: 0; }
+
+/* --- Boutons --- */
+.ps-btn {
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  background: var(--site-primary, #0e6f5c); color: #fff; border: none; cursor: pointer;
+  padding: 0.8rem 1.5rem; border-radius: 4px;
+  font-weight: 800; font-size: 0.82rem; letter-spacing: 0.09em; text-transform: uppercase;
+  transition: 0.15s; text-decoration: none;
+}
+.ps-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.ps-btn:disabled { opacity: 0.55; transform: none; }
+.ps-btn--line {
+  background: transparent; color: #101210; border: 2px solid #101210; padding: 0.72rem 1.5rem;
+}
+.ps-btn--line:hover { background: var(--site-primary, #0e6f5c); border-color: var(--site-primary, #0e6f5c); color: #fff; filter: none; }
+.ps-btn--sm { padding: 0.55rem 1rem; font-size: 0.74rem; }
+.ps-link {
+  color: var(--site-primary, #0e6f5c); font-weight: 800; font-size: 0.78rem;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 0.45rem; transition: gap 0.18s;
+}
+.ps-link:hover { gap: 0.8rem; }
+
+/* --- Cartes --- */
+.ps-card {
+  background: #fff; border: 1px solid #e8e9e6; border-radius: 10px;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.ps-card--hover:hover { transform: translateY(-4px); box-shadow: 0 20px 44px -20px rgba(10, 20, 15, 0.28); }
+
+/* --- Chips de filtre --- */
+.ps-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.ps-chips button {
+  background: #fff; border: 1px solid #dcdedb; border-radius: 4px;
+  padding: 0.5rem 1rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; cursor: pointer; color: #3c403c; transition: 0.15s; font-family: inherit;
+}
+.ps-chips button:hover { border-color: var(--site-primary, #0e6f5c); color: var(--site-primary, #0e6f5c); }
+.ps-chips button.on { background: var(--site-primary, #0e6f5c); border-color: var(--site-primary, #0e6f5c); color: #fff; }
+
+/* --- Badges (étiquette noire sur image) --- */
+.ps-tag {
+  background: #0d0f0d; color: #fff; font-size: 0.64rem; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; padding: 0.28rem 0.6rem; border-radius: 4px;
+}
+.ps-tag--primary { background: var(--site-primary, #0e6f5c); }
+
+/* --- Prix --- */
+.ps-price { font-weight: 800; color: #101210; font-size: 1.15rem; letter-spacing: -0.01em; }
+.ps-price small { color: #7c817b; font-weight: 500; font-size: 0.78rem; }
+
+/* --- Divers --- */
+.ps-muted { color: #7c817b; padding: 1.6rem 0; }
+.ps-ph {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: #b9beb8; font-size: 2rem; background: #eef0ed;
+}

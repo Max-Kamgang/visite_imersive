@@ -1,0 +1,95 @@
+name: Intégration continue
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilation et contrôles
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Compiler
+        env:
+          # Vite inscrit ces valeurs DANS le bundle : elles doivent être présentes
+          # à la compilation, pas au démarrage. La clé anon est publique par
+          # conception — c'est la RLS de Supabase qui protège les données.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      # Contrôles de non-régression sur le résultat de la compilation.
+      # Ils portent sur ce qui casse silencieusement en production.
+      - name: Vérifier le contenu produit
+        run: |
+          set -e
+          echo "── Fichiers attendus ──"
+          for f in dist/index.html dist/sw.js dist/manifest.webmanifest; do
+            [ -f "$f" ] || { echo "MANQUANT : $f"; exit 1; }
+            echo "ok  $f"
+          done
+
+          # Les modèles de démonstration doivent être livrés : sans eux, la
+          # réalité augmentée n'a rien à poser quand un objet n'est pas numérisé.
+          for f in dist/modeles/tabouret.glb dist/modeles/recipient.glb; do
+            [ -f "$f" ] || { echo "MANQUANT : $f — lancez node scripts/build-demo-models.mjs"; exit 1; }
+            echo "ok  $f"
+          done
+
+          # Un .glb valide commence par « glTF ». Un fichier tronqué passerait
+          # inaperçu jusqu'à l'ouverture de la visionneuse.
+          head -c 4 dist/modeles/tabouret.glb | grep -q 'glTF' \
+            || { echo "tabouret.glb n'est pas un glTF valide"; exit 1; }
+          echo "ok  en-tête glTF"
+
+          # Une compilation sans adresse Supabase produit un site qui s'affiche
+          # et ne charge aucune donnée — la panne la plus déroutante qui soit.
+          grep -rq 'supabase.co' dist/assets/*.js \
+            || { echo "Aucune adresse Supabase dans le bundle : secret VITE_SUPABASE_URL absent ?"; exit 1; }
+          echo "ok  adresse Supabase présente"
+
+      - name: Publier le résultat
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+
+  terraform:
+    name: Contrôle de l'infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Format
+        run: terraform -chdir=infra fmt -check -recursive
+
+      # -backend=false : on valide la syntaxe sans toucher à l'état distant,
+      # donc sans aucun accès AWS.
+      - name: Initialisation
+        run: terraform -chdir=infra init -backend=false
+
+      - name: Validation
+        run: terraform -chdir=infra validate

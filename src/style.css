@@ -1,0 +1,445 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ERP « Génius » — blanc + navy + orange, sur gris froid */
+  --vi-bg: #f6f7f9;          /* fond de page gris froid */
+  --vi-surface: #ffffff;     /* cartes, sidebar */
+  --vi-surface-2: #f1f3f6;   /* champs, carrés d'icônes */
+  --vi-border: #e9edf2;
+  --vi-text: #1b2a4a;        /* navy (titres, valeurs) */
+  --vi-muted: #6b7280;       /* gris secondaire */
+  --vi-navy: #16223c;        /* navy profond : item actif, avatars */
+  --vi-gold: #f26b21;        /* accent orange (= primaire) */
+
+  /* Sidebar blanche : entrée active = navy plein + texte/icône blancs */
+  --vi-side-bg: #ffffff;
+  --vi-side-text: #3f4a5c;
+  --vi-side-muted: #98a1b2;  /* labels de section + icônes inactives */
+  --vi-side-hover: #f3f5f8;
+  --vi-side-active-bg: #16223c;
+  --vi-side-active-text: #ffffff;
+  --vi-side-border: #eef1f5;
+
+  /* Profondeur (ombres froides, douces) */
+  --vi-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 8px -4px rgba(16, 24, 40, 0.06);
+  --vi-shadow-md: 0 4px 10px -2px rgba(16, 24, 40, 0.06), 0 14px 30px -16px rgba(16, 24, 40, 0.14);
+  --vi-shadow-lg: 0 20px 55px -18px rgba(16, 24, 40, 0.22);
+  --vi-radius: 14px;         /* cartes */
+  --vi-radius-lg: 16px;
+
+  --vi-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --vi-sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --vi-topbar-h: 68px;
+  --vi-sidebar-w: 258px;
+  --vi-sidebar-w-mini: 74px;
+}
+
+.app-dark {
+  --vi-bg: #0e1526;
+  --vi-surface: #16203a;
+  --vi-surface-2: #1e2c49;
+  --vi-border: #26375a;
+  --vi-text: #e8edf5;
+  --vi-muted: #9aa7bd;
+  --vi-navy: #0a1122;
+  --vi-gold: #f47f40;
+
+  --vi-side-bg: #16203a;
+  --vi-side-text: #c4cfe0;
+  --vi-side-muted: #7c8aa5;
+  --vi-side-hover: #1e2c49;
+  --vi-side-active-bg: #0a1122;
+  --vi-side-active-text: #ffffff;
+  --vi-side-border: #26375a;
+
+  --vi-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 14px -6px rgba(0, 0, 0, 0.4);
+  --vi-shadow-md: 0 4px 10px -2px rgba(0, 0, 0, 0.4), 0 18px 38px -16px rgba(0, 0, 0, 0.55);
+  --vi-shadow-lg: 0 12px 50px -12px rgba(0, 0, 0, 0.65);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--vi-sans);
+  background: var(--vi-bg);
+  color: var(--vi-text);
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--p-primary-color) 22%, transparent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--vi-muted) 38%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- Page ---------- */
+.vi-page {
+  padding: 1.9rem 2rem 1.5rem;
+  max-width: 1640px;
+  margin: 0 auto;
+}
+
+.vi-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.vi-page__title {
+  margin: 0;
+  font-family: var(--vi-sans);
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.vi-page__subtitle {
+  margin: 0.4rem 0 0;
+  color: var(--vi-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- Grille de cartes (musées, objets) ---------- */
+.vi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.25rem;
+}
+
+/* ---------- Layout liste : contenu + filtres ---------- */
+.list-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .list-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.list-main {
+  min-height: 200px;
+}
+
+/* ---------- Carte de filtres ---------- */
+.filters-card {
+  background: var(--vi-surface);
+  border: 1px solid var(--vi-border);
+  border-radius: var(--vi-radius);
+  padding: 1.2rem 1.2rem 1.3rem;
+  position: sticky;
+  top: calc(var(--vi-topbar-h) + 1rem);
+  box-shadow: var(--vi-shadow-sm);
+}
+
+.filters-card__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--vi-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--vi-border);
+}
+
+.filters-card__title i {
+  color: var(--p-primary-color);
+}
+
+.filters-card__field {
+  margin-bottom: 1rem;
+}
+
+.filters-card__field > label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vi-muted);
+  margin-bottom: 0.45rem;
+}
+
+.filters-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.3rem;
+}
+
+/* ---------- États ---------- */
+.vi-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--vi-muted);
+}
+
+.vi-empty i {
+  font-size: 2.5rem;
+  opacity: 0.5;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+/* ---------- Champs de formulaire ---------- */
+.vi-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.vi-field > label {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.vi-field small {
+  color: var(--vi-muted);
+}
+
+.vi-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.vi-row > .vi-field {
+  flex: 1 1 200px;
+}
+
+.vi-field .p-inputtext,
+.vi-field .p-select,
+.vi-field .p-inputnumber,
+.vi-field .p-textarea,
+.vi-field .p-inputwrapper,
+.filters-card__field .p-inputtext,
+.filters-card__field .p-select,
+.filters-card__field .p-inputnumber,
+.filters-card__field .p-inputwrapper {
+  width: 100%;
+}
+
+/* ---------- Polish PrimeVue ---------- */
+body .p-button {
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+body .p-inputtext,
+body .p-select,
+body .p-textarea {
+  border-radius: 10px;
+}
+
+/* Pilules : valeurs courtes (statuts, e-mails, types, formats) */
+body .p-tag {
+  font-weight: 600;
+  border-radius: 6px;
+}
+/* Valeurs neutres « encadrées » (e-mails, noms de fichiers, unités) */
+body .p-tag.p-tag-secondary {
+  background: var(--vi-surface-2);
+  color: var(--vi-text);
+  border: 1px solid var(--vi-border);
+}
+
+body .p-dialog {
+  border-radius: var(--vi-radius-lg);
+  border: 1px solid var(--vi-border);
+  box-shadow: var(--vi-shadow-lg);
+}
+
+#app .p-datatable {
+  border: 1px solid var(--vi-border);
+  border-radius: var(--vi-radius);
+  overflow: hidden;
+  box-shadow: var(--vi-shadow-sm);
+}
+
+#app .p-datatable .p-datatable-thead > tr > th {
+  background: var(--vi-surface-2);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--vi-muted);
+}
+
+#app .p-datatable .p-datatable-tbody > tr {
+  transition: background 0.12s ease;
+}
+
+#app .p-datatable .p-datatable-tbody > tr:hover {
+  background: color-mix(in srgb, var(--p-primary-color) 5%, var(--vi-surface));
+}
+
+/* Back-office : sans-serif partout (le serif patrimonial est réservé au site public) */
+.panel__head h2,
+.stat__value,
+.p-dialog-title {
+  font-family: var(--vi-sans);
+  letter-spacing: -0.01em;
+}
+.p-dialog-title {
+  font-weight: 700;
+}
+
+/* ============================================================================
+   REFONTE ERP — tableaux, actions et états
+   ----------------------------------------------------------------------------
+   Objectif : des tableaux denses mais respirants, une hiérarchie d'actions
+   lisible, et des états vides qui guident au lieu de constater.
+   ============================================================================ */
+
+/* ---------- Tableaux ---------- */
+#app .p-datatable {
+  box-shadow: var(--vi-shadow-sm);
+}
+
+/* En-tête : discret, collant au défilement, aligné sur la grille de la page */
+#app .p-datatable .p-datatable-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.7rem 1rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  border-bottom: 1px solid var(--vi-border);
+  white-space: nowrap;
+}
+
+/* Lignes : hauteur confortable, séparateur ténu */
+#app .p-datatable .p-datatable-tbody > tr > td {
+  padding: 0.72rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--vi-border) 60%, transparent);
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+#app .p-datatable .p-datatable-tbody > tr:last-child > td { border-bottom: none; }
+
+/* Survol : bande d'accent à gauche, plus lisible qu'un fond seul */
+#app .p-datatable .p-datatable-tbody > tr {
+  box-shadow: inset 3px 0 0 transparent;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+#app .p-datatable .p-datatable-tbody > tr:hover {
+  box-shadow: inset 3px 0 0 var(--p-primary-color);
+}
+
+/* Les valeurs numériques s'alignent à droite et se comparent d'un coup d'œil */
+#app .p-datatable td.num, #app .p-datatable th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Cellule « identité » : titre + sous-titre, motif récurrent de l'ERP */
+.cell-id { display: flex; flex-direction: column; gap: 0.12rem; min-width: 0; }
+.cell-id strong { font-weight: 650; color: var(--vi-text); line-height: 1.25; }
+.cell-id span { font-size: 0.76rem; color: var(--vi-muted); display: flex; align-items: center; gap: 0.3rem; }
+
+/* Vignette de ligne (produit, objet, musée) */
+.cell-thumb {
+  width: 42px; height: 42px; border-radius: 9px; object-fit: cover;
+  display: block; background: var(--vi-surface-2); flex: 0 0 42px;
+}
+.cell-thumb--ph { display: flex; align-items: center; justify-content: center; color: var(--vi-muted); }
+
+/* ---------- Barre d'actions d'une ligne ---------- */
+/* Discrètes au repos, révélées au survol : le tableau reste lisible. */
+.row-actions { display: flex; align-items: center; gap: 0.15rem; justify-content: flex-end; }
+.row-actions .p-button {
+  width: 32px; height: 32px; border-radius: 8px;
+  opacity: 0.55; transition: opacity 0.12s ease, background 0.12s ease;
+}
+tr:hover .row-actions .p-button, .row-actions .p-button:focus-visible { opacity: 1; }
+.row-actions .p-button:hover { background: var(--vi-surface-2); }
+
+/* ---------- En-tête de page ---------- */
+.vi-page__header { align-items: flex-start; }
+.vi-page__actions { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+
+/* Filtres regroupés visuellement, séparés des actions principales */
+.vi-toolbar {
+  display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;
+  padding: 0.7rem 0.85rem; margin-bottom: 1rem;
+  background: var(--vi-surface); border: 1px solid var(--vi-border);
+  border-radius: 12px; box-shadow: var(--vi-shadow-sm);
+}
+.vi-toolbar__sep { width: 1px; height: 22px; background: var(--vi-border); }
+.vi-toolbar__grow { flex: 1; }
+
+/* ---------- Cartes d'indicateurs ---------- */
+.vi-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.9rem; margin-bottom: 1.15rem; }
+.vi-stat {
+  display: flex; align-items: center; gap: 0.85rem;
+  background: var(--vi-surface); border: 1px solid var(--vi-border);
+  border-radius: 14px; padding: 0.95rem 1.05rem; box-shadow: var(--vi-shadow-sm);
+}
+.vi-stat__ic {
+  width: 42px; height: 42px; border-radius: 11px; flex: 0 0 42px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+  background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
+  color: var(--p-primary-color);
+}
+.vi-stat__ic--green  { background: #e6f4ee; color: #0e6f5c; }
+.vi-stat__ic--blue   { background: #e7eefc; color: #2b5fd9; }
+.vi-stat__ic--orange { background: #fdf0e3; color: #c1741a; }
+.vi-stat__ic--red    { background: #fdeceb; color: #c0392b; }
+.vi-stat__b { min-width: 0; }
+.vi-stat__b strong { display: block; font-size: 1.3rem; font-weight: 700; line-height: 1.15; color: var(--vi-text); font-variant-numeric: tabular-nums; }
+.vi-stat__b span { font-size: 0.78rem; color: var(--vi-muted); }
+
+/* ---------- État vide : guider, pas constater ---------- */
+.vi-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 2.6rem 1.5rem; text-align: center;
+}
+.vi-empty i { font-size: 2.1rem; color: color-mix(in srgb, var(--vi-muted) 55%, transparent); }
+.vi-empty strong { font-size: 1rem; color: var(--vi-text); }
+.vi-empty p { margin: 0; color: var(--vi-muted); font-size: 0.88rem; max-width: 30rem; }
+.vi-empty .p-button { margin-top: 0.6rem; }
+
+/* ---------- Pastilles d'état ---------- */
+.vi-dot { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; }
+.vi-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.vi-dot--on   { color: #0e6f5c; }
+.vi-dot--off  { color: var(--vi-muted); }
+.vi-dot--warn { color: #c1741a; }
+.vi-dot--bad  { color: #c0392b; }
+
+@media (max-width: 720px) {
+  #app .p-datatable .p-datatable-tbody > tr > td { padding: 0.6rem 0.7rem; }
+  .row-actions .p-button { opacity: 1; }
+}
